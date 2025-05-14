@@ -1,16 +1,36 @@
-# my_web_app
+# ✅ Flutter Web Task Manager with Back4App (Parse REST API)
 
-A new Flutter project.
+A clean, responsive **Flutter Web app** for managing personal tasks (CRUD), using the **Back4App REST API** for user authentication and task storage. Deployed on **Back4App Containers** with static web hosting.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🚀 Features
 
-A few resources to get you started if this is your first Flutter project:
+- 🔐 User Authentication (Sign up & Login)
+- 📋 Create, Read, Update, Delete tasks
+- 🧑‍💼 Tasks are user-specific via Parse Pointer
+- 🧠 REST API calls using `http` (SDK-free, web-friendly)
+- 🌐 Fully deployable on [Back4App Containers](https://containers.back4app.com)
+- 📱 Responsive UI for Web
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🧰 Tech Stack
+
+| Layer      | Technology                        |
+|------------|-----------------------------------|
+| Frontend   | Flutter Web                       |
+| Backend    | Back4App (Parse Server + REST API)|
+| Hosting    | Back4App Containers (Nginx Static)|
+| Auth       | Parse REST `/login`, `/users`     |
+| DB         | Back4App Class `Task`             |
+
+---
+
+## 📦 Project Structure
+
+lib/
+├── main.dart
+├── auth_page.dart
+└── dashboard_page.dart
+
