@@ -20,5 +20,6 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}  # Critical fix
           publish_dir: ./build/web
+          force_orphan: true  # Ensures only latest files are kept
