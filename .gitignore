@@ -11,35 +11,59 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+.env
+.env.*
+*.lock
 
-# IntelliJ related
+# IntelliJ/Android Studio related
 *.iml
 *.ipr
 *.iws
 .idea/
+local.properties  # Android-specific settings (e.g., SDK paths)
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Visual Studio Code related (uncomment if needed)
+# .vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
-**/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 /build/
+.packages
 
-# Symbolication related
+# 🔥 Changed: Commit pubspec.lock for consistent dependencies (remove this line if you want to ignore it)
+# pubspec.lock  # 🚫 Removed: Now tracked in Git
+
+# Android
+/android/  # 🚫 Entire Android directory (no need to track generated files)
+
+# iOS/macOS
+/ios/  # 🚫 Entire iOS directory
+/ios/Flutter/App.framework/
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+
+# Web
+# 🚫 Removed /web/ exclusion (keep web/ if you have custom web-specific code)
+
+# Desktop (Windows, Linux, macOS)
+/linux/
+/windows/
+/macos/
+
+# Coverage
+/coverage/
+lcov.info
+
+# Obfuscation/Symbolication
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Firebase
+.firebase/
+firebase-debug.log
