@@ -51,4 +51,3 @@ lib/
 ### 📋 Dashboard Page
 
 ![Dashboard](assets/dashboard.png)
-
