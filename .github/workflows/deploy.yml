@@ -15,7 +15,7 @@ jobs:
           channel: stable
 
       - run: flutter pub get
-      - run: flutter build web --release
+      - run: flutter build web --release --base-href "/2023tm93771-cross-platform-assignment/"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
