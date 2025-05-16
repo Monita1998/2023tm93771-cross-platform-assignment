@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'auth_page.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-const appId = '8YLfi6BITxTiH1sT4udmgimcGZ45dPo1ILAGTdgu';
-const restKey = 'scK02G7UzAq13Ogpv4K7RjrbJBaxVoJAyPidzjIM';
-const serverUrl = 'https://parseapi.back4app.com';
+final appId = dotenv.env['APP_ID']!;
+final restKey = dotenv.env['REST_KEY']!;
+final serverUrl = dotenv.env['SERVER_URL']!;
 
 class DashboardPage extends StatefulWidget {
   final String username;
@@ -18,14 +20,22 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  final titleController = TextEditingController();
-  final descController = TextEditingController();
+  final nameController = TextEditingController();
+  final bioController = TextEditingController();
+  final ageController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
   List<Map<String, dynamic>> tasks = [];
   String? editingTaskId;
 
+  @override
+  void initState() {
+    super.initState();
+    fetchTasks();
+  }
+
   Future<String?> getCurrentUserId() async {
-    final response = await http.get(
+    final res = await http.get(
       Uri.parse('$serverUrl/users/me'),
       headers: {
         "X-Parse-Application-Id": appId,
@@ -33,11 +43,7 @@ class _DashboardPageState extends State<DashboardPage> {
         "X-Parse-Session-Token": widget.sessionToken,
       },
     );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['objectId'];
-    }
+    if (res.statusCode == 200) return jsonDecode(res.body)['objectId'];
     return null;
   }
 
@@ -45,16 +51,12 @@ class _DashboardPageState extends State<DashboardPage> {
     final userId = await getCurrentUserId();
     if (userId == null) return;
 
-    final whereQuery = jsonEncode({
-      "user": { 
-        "__type": "Pointer",
-        "className": "_User",
-        "objectId": userId
-      }
+    final query = jsonEncode({
+      "user": {"__type": "Pointer", "className": "_User", "objectId": userId},
     });
 
-    final response = await http.get(
-      Uri.parse('$serverUrl/classes/Task?where=$whereQuery&order=-createdAt'),
+    final res = await http.get(
+      Uri.parse('$serverUrl/classes/Task?where=$query&order=-createdAt'),
       headers: {
         "X-Parse-Application-Id": appId,
         "X-Parse-REST-API-Key": restKey,
@@ -62,124 +64,104 @@ class _DashboardPageState extends State<DashboardPage> {
       },
     );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+    if (res.statusCode == 200) {
       setState(() {
-        tasks = List<Map<String, dynamic>>.from(data['results']);
+        tasks = List<Map<String, dynamic>>.from(
+          jsonDecode(res.body)['results'],
+        );
       });
     }
   }
 
   Future<void> createOrUpdateTask() async {
-    final title = titleController.text.trim();
-    final description = descController.text.trim();
-    if (title.isEmpty || description.isEmpty) return;
+    final name = nameController.text.trim();
+    final bio = bioController.text.trim();
+    final age = ageController.text.trim();
+
+    final ageValue = int.parse(age); // safe now since form was validated
 
     final userId = await getCurrentUserId();
     if (userId == null) return;
 
     final taskData = {
-      "title": title,
-      "description": description,
-      "user": {
-        "__type": "Pointer",
-        "className": "_User",
-        "objectId": userId
-      }
+      "name": name,
+      "bio": bio,
+      "age": ageValue,
+      "user": {"__type": "Pointer", "className": "_User", "objectId": userId},
     };
 
-    http.Response response;
-    if (editingTaskId != null) {
-      // Update existing
-      response = await http.put(
-        Uri.parse('$serverUrl/classes/Task/$editingTaskId'),
-        headers: {
-          "X-Parse-Application-Id": appId,
-          "X-Parse-REST-API-Key": restKey,
-          "X-Parse-Session-Token": widget.sessionToken,
-          "Content-Type": "application/json"
-        },
-        body: jsonEncode(taskData),
-      );
-    } else {
-      // Create new
-      response = await http.post(
-        Uri.parse('$serverUrl/classes/Task'),
-        headers: {
-          "X-Parse-Application-Id": appId,
-          "X-Parse-REST-API-Key": restKey,
-          "X-Parse-Session-Token": widget.sessionToken,
-          "Content-Type": "application/json"
-        },
-        body: jsonEncode(taskData),
-      );
-    }
+    final isUpdate = editingTaskId != null;
+    final uri =
+        isUpdate
+            ? Uri.parse('$serverUrl/classes/Task/$editingTaskId')
+            : Uri.parse('$serverUrl/classes/Task');
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(editingTaskId != null ? "Task updated" : "Task created")),
-      );
-      titleController.clear();
-      descController.clear();
-      editingTaskId = null;
+    final res =
+        await (isUpdate
+            ? http.put(uri, headers: _headers(), body: jsonEncode(taskData))
+            : http.post(uri, headers: _headers(), body: jsonEncode(taskData)));
+
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(isUpdate ? "Updated" : "Created")));
+      clearFields();
       fetchTasks();
     } else {
-      final error = jsonDecode(response.body)['error'];
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(title: Text("Error"), content: Text(error)),
-      );
+      showError(jsonDecode(res.body)['error']);
     }
   }
 
-  Future<void> deleteTask(String objectId) async {
-    final response = await http.delete(
-      Uri.parse('$serverUrl/classes/Task/$objectId'),
+  Future<void> deleteTask(String id) async {
+    final res = await http.delete(
+      Uri.parse('$serverUrl/classes/Task/$id'),
       headers: {
         "X-Parse-Application-Id": appId,
         "X-Parse-REST-API-Key": restKey,
         "X-Parse-Session-Token": widget.sessionToken,
       },
     );
-
-    if (response.statusCode == 200) {
+    if (res.statusCode == 200) {
       fetchTasks();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Task deleted")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Deleted")));
     } else {
-      final error = jsonDecode(response.body)['error'];
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(title: Text("Error"), content: Text(error)),
-      );
+      showError(jsonDecode(res.body)['error']);
     }
+  }
+
+  void clearFields() {
+    nameController.clear();
+    bioController.clear();
+    ageController.clear();
+    editingTaskId = null;
+  }
+
+  void showError(String msg) {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: Text("Error"),
+            content: Text(msg),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text("OK"),
+              ),
+            ],
+          ),
+    );
   }
 
   void startEditing(Map<String, dynamic> task) {
     setState(() {
       editingTaskId = task['objectId'];
-      titleController.text = task['title'] ?? '';
-      descController.text = task['description'] ?? '';
+      nameController.text = task['name'] ?? '';
+      bioController.text = task['bio'] ?? '';
+      ageController.text = task['age']?.toString() ?? '';
     });
-  }
-
-  void showDetail(Map<String, dynamic> task) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(task['title']),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text("Description:\n${task['description'] ?? ''}"),
-            SizedBox(height: 10),
-            Text("Created At:\n${task['createdAt']}"),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Close"))
-        ],
-      ),
-    );
   }
 
   void logout() {
@@ -190,63 +172,218 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    fetchTasks();
-  }
+  Map<String, String> _headers() => {
+    "X-Parse-Application-Id": appId,
+    "X-Parse-REST-API-Key": restKey,
+    "X-Parse-Session-Token": widget.sessionToken,
+    "Content-Type": "application/json",
+  };
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text("Dashboard")),
-        body: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Text("Welcome, ${widget.username}!", style: TextStyle(fontSize: 20)),
-              SizedBox(height: 20),
-              TextField(controller: titleController, decoration: InputDecoration(labelText: "Task Title")),
-              TextField(controller: descController, decoration: InputDecoration(labelText: "Description")),
-              SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: createOrUpdateTask,
-                child: Text(editingTaskId == null ? "Create Task" : "Update Task"),
+  Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width > 800;
+
+    return Scaffold(
+      // Top Navigation
+      appBar: AppBar(
+        title: Text("Dashboard"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.deepPurple,
+        elevation: 4,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: Text(
+                "Hi, ${widget.username}",
+                style: TextStyle(fontWeight: FontWeight.w500),
               ),
-              SizedBox(height: 20),
-              Divider(),
-              Expanded(
-                child: tasks.isEmpty
-                    ? Center(child: Text("No tasks found"))
-                    : ListView.builder(
-                        itemCount: tasks.length,
-                        itemBuilder: (_, i) {
-                          final task = tasks[i];
-                          return Card(
-                            child: ListTile(
-                              title: Text(task['title'] ?? ''),
-                              subtitle: Text(task['description'] ?? ''),
-                              onTap: () => showDetail(task),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(icon: Icon(Icons.edit), onPressed: () => startEditing(task)),
-                                  IconButton(
-                                      icon: Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () => deleteTask(task['objectId'])),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-              ElevatedButton(
-                onPressed: logout,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: Text("Logout"),
-              ),
-            ],
+            ),
+          ),
+          IconButton(
+            onPressed: logout,
+            icon: Icon(Icons.logout),
+            tooltip: "Logout",
+          ),
+        ],
+      ),
+
+      // Gradient background and layout
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.indigo.shade900, Colors.purple.shade400],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
         ),
-      );
+        child: Column(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child:
+                    isWide
+                        ? Row(
+                          children: [
+                            Expanded(child: _buildGradientFormCard()),
+                            SizedBox(width: 20),
+                            Expanded(child: _buildGradientTaskList()),
+                          ],
+                        )
+                        : Column(
+                          children: [
+                            _buildGradientFormCard(),
+                            SizedBox(height: 20),
+                            Expanded(child: _buildGradientTaskList()),
+                          ],
+                        ),
+              ),
+            ),
+
+            // Footer
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 12),
+              color: Colors.white,
+              child: Center(
+                child: Text(
+                  "© ${DateTime.now().year} Monita. All rights reserved.",
+                  style: TextStyle(color: Colors.black87),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradientFormCard() {
+  return Card(
+    elevation: 10,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    color: Colors.white.withOpacity(0.9),
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Form(
+        key: _formKey, // ← Add the form key here
+        child: Column(
+          children: [
+            Text(
+              "Hi, ${widget.username}!",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.deepPurple,
+              ),
+            ),
+            SizedBox(height: 20),
+            TextFormField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: "Name",
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+              validator: (val) =>
+                  val == null || val.trim().isEmpty ? 'Name is required' : null,
+            ),
+            SizedBox(height: 12),
+            TextFormField(
+              controller: bioController,
+              decoration: InputDecoration(
+                labelText: "Bio",
+                prefixIcon: Icon(Icons.info_outline),
+              ),
+              validator: (val) =>
+                  val == null || val.trim().isEmpty ? 'Bio is required' : null,
+            ),
+            SizedBox(height: 12),
+            TextFormField(
+              controller: ageController,
+              decoration: InputDecoration(
+                labelText: "Age",
+                prefixIcon: Icon(Icons.cake_outlined),
+                helperText: "Age must be a number (e.g. 25)",
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Age is required';
+                } else if (int.tryParse(value) == null) {
+                  return 'Age must be a valid number';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 20),
+            ElevatedButton.icon(
+              icon: Icon(editingTaskId == null ? Icons.add : Icons.update),
+              label: Text(editingTaskId == null ? "Create" : "Update"),
+              onPressed: () {
+                if (_formKey.currentState!.validate()) {
+                  createOrUpdateTask();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                minimumSize: Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+  Widget _buildGradientTaskList() {
+    return Card(
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: Colors.white.withOpacity(0.95),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child:
+            tasks.isEmpty
+                ? Center(
+                  child: Text("No tasks yet!", style: TextStyle(fontSize: 16)),
+                )
+                : ListView.separated(
+                  itemCount: tasks.length,
+                  separatorBuilder: (_, __) => Divider(),
+                  itemBuilder: (_, i) {
+                    final task = tasks[i];
+                    return ListTile(
+                      title: Text(
+                        task['name'],
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text("${task['bio']} • Age: ${task['age']}"),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.edit),
+                            onPressed: () => startEditing(task),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => deleteTask(task['objectId']),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+      ),
+    );
+  }
 }

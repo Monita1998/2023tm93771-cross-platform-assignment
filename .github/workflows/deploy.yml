@@ -9,13 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
 
-      - run: flutter pub get
-      - run: flutter build web --release --base-href "/2023tm93771-cross-platform-assignment/"
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create .env file from GitHub Secrets
+        run: |
+          echo "APP_ID=${{ secrets.APP_ID }}" >> .env
+          echo "REST_KEY=${{ secrets.REST_KEY }}" >> .env
+          echo "SERVER_URL=${{ secrets.SERVER_URL }}" >> .env
+      
+      - name: Build Flutter Web
+        run: flutter build web --release --base-href "/2023tm93771-cross-platform-assignment/"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
