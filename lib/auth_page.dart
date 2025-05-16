@@ -276,7 +276,7 @@ class _AuthPageState extends State<AuthPage> {
                       child: Text(
                         isLogin
                             ? "Don't have an account? Sign Up"
-                            : "Already have an account? Login new",
+                            : "Already have an account? Login",
                       ),
                     ),
                     if (isLogin)

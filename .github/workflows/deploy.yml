@@ -20,15 +20,18 @@ jobs:
           flutter clean
           flutter pub get
 
-      - name: Create .env file from GitHub Secrets
+      - name: Create app_env file from GitHub Secrets
         run: |
-          mkdir -p assets  # Create assets directory if it doesn't exist
-          echo "APP_ID=${{ secrets.APP_ID }}" > assets/.env
-          echo "REST_KEY=${{ secrets.REST_KEY }}" >> assets/.env
-          echo "SERVER_URL=${{ secrets.SERVER_URL }}" >> assets/.env
+          mkdir -p assets
+          echo "APP_ID=${{ secrets.APP_ID }}" > assets/app_env
+          echo "REST_KEY=${{ secrets.REST_KEY }}" >> assets/app_env
+          echo "SERVER_URL=${{ secrets.SERVER_URL }}" >> assets/app_env
 
       - name: Build Flutter Web
         run: flutter build web --release --base-href "/2023tm93771-cross-platform-assignment/"
+
+      - name: Add .nojekyll to bypass GitHub Pages restrictions
+        run: touch build/web/.nojekyll
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
