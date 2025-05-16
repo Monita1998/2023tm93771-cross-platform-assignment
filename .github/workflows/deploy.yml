@@ -27,11 +27,17 @@ jobs:
           echo "REST_KEY=${{ secrets.REST_KEY }}" >> assets/app_env
           echo "SERVER_URL=${{ secrets.SERVER_URL }}" >> assets/app_env
 
-      - name: Build Flutter Web
-        run: flutter build web --release --base-href "/2023tm93771-cross-platform-assignment/"
+      - name: Build Flutter Web and copy app_env
+        run: |
+          flutter build web --release --base-href "/2023tm93771-cross-platform-assignment/"
+          cp assets/app_env build/web/assets/  # Critical fix
 
-      - name: Add .nojekyll to bypass GitHub Pages restrictions
-        run: touch build/web/.nojekyll
+      - name: Add .nojekyll and security headers
+        run: |
+          touch build/web/.nojekyll
+          echo "/assets/app_env" >> build/web/_headers
+          echo "  X-Robots-Tag: none" >> build/web/_headers
+          echo "  Cache-Control: no-store" >> build/web/_headers
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
