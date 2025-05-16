@@ -48,6 +48,10 @@ local.properties  # Android-specific settings (e.g., SDK paths)
 /ios/Flutter/Generated.xcconfig
 /ios/Flutter/flutter_export_environment.sh
 
+# Flutter-generated platform folders
+/android/
+/ios/
+
 # Web
 # 🚫 Removed /web/ exclusion (keep web/ if you have custom web-specific code)
 
