@@ -20,24 +20,10 @@ jobs:
           flutter clean
           flutter pub get
 
-      - name: Create app_env file from GitHub Secrets
-        run: |
-          mkdir -p assets
-          echo "APP_ID=${{ secrets.APP_ID }}" > assets/app_env
-          echo "REST_KEY=${{ secrets.REST_KEY }}" >> assets/app_env
-          echo "SERVER_URL=${{ secrets.SERVER_URL }}" >> assets/app_env
-
       - name: Build Flutter Web and copy app_env
         run: |
           flutter build web --release --base-href "/2023tm93771-cross-platform-assignment/"
-          cp assets/app_env build/web/assets/  # Critical fix
-
-      - name: Add .nojekyll and security headers
-        run: |
-          touch build/web/.nojekyll
-          echo "/assets/app_env" >> build/web/_headers
-          echo "  X-Robots-Tag: none" >> build/web/_headers
-          echo "  Cache-Control: no-store" >> build/web/_headers
+          cp assets/app_env build/web/assets/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
